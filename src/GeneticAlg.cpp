@@ -13,6 +13,8 @@ namespace genetic_alg
         assert(params.tournament_size > 0 && "Tournament size must be greater than 0");
         assert(params.multi_point_crossover_points > 0 && params.multi_point_crossover_points < params.ind_size && "Multi-point crossover points must be greater than 0 and less than individual size");
         assert(params.uniform_crossover_parent_ratio >= 0.0 && params.uniform_crossover_parent_ratio <= 1.0 && "Uniform crossover parent ratio must be between 0 and 1");
+        assert(params.epoch_improvement_threshold > 0 && "Epoch improvement threshold must be greater than 0");
+        assert(params.minimum_improvement_rate >= 0.0 && params.minimum_improvement_rate <= 1.0 && "Minimum improvement rate must be between 0 and 1");
 
         _population = Population(params.ind_size, params.pop_size);
 
@@ -266,6 +268,11 @@ namespace genetic_alg
         std::mt19937 gen(rd());
         std::uniform_real_distribution<double> rdis(0.0, 1.0);
 
+        if (!_params.elitism)
+        {
+            skip_index = -1;
+        }
+
         for (int i = 0; i < _population.rows(); ++i)
         {
             if (i == skip_index)
@@ -282,7 +289,7 @@ namespace genetic_alg
         }
     }
 
-    bool GeneticAlg::run_epoch()
+    void GeneticAlg::run_epoch()
     {
         Population selected;
 
@@ -320,18 +327,26 @@ namespace genetic_alg
 
         fittest = _find_fittest();
 
+        double prev_max_fitness = _max_fitness;
         if (fittest.second > _max_fitness)
         {
             _max_fitness = fittest.second;
             _fittest_individual = _population.block(0, fittest.first, _population.rows(), 1);
         }
 
-        return true;
-    }
+        if (_max_fitness < prev_max_fitness * (1.0 + _params.minimum_improvement_rate))
+        {
+            ++_no_improvement_count;
+        }
+        else
+        {
+            _no_improvement_count = 0;
+        }
 
-    const std::pair<Individual, double> GeneticAlg::get_fittest() const
-    {
-        return std::make_pair(_fittest_individual, _max_fitness);
+        if (_no_improvement_count == _params.epoch_improvement_threshold)
+        {
+            _stop = true;
+        }
     }
 
     Individual random_individual(int size)

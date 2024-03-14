@@ -61,6 +61,9 @@ namespace genetic_alg
         int tournament_size = 3;
         int multi_point_crossover_points = 2;
         double uniform_crossover_parent_ratio = 0.5;
+        bool elitism = true;
+        int epoch_improvement_threshold = 5;
+        double minimum_improvement_rate = 0.005;
     };
 
     class GeneticAlg
@@ -68,9 +71,11 @@ namespace genetic_alg
     public:
         GeneticAlg(const Parameters &params);
 
-        bool run_epoch();
+        void run_epoch();
 
-        const std::pair<Individual, double> get_fittest() const;
+        const std::pair<Individual, double> get_fittest() const { return {_fittest_individual, _max_fitness}; }
+
+        const bool early_stop() const { return _stop; }
 
     protected:
         Population _population;
@@ -80,6 +85,9 @@ namespace genetic_alg
         Individual _fittest_individual;
 
         std::unordered_map<Individual, double, matrix_hash<Individual>> _fitness_cache;
+
+        int _no_improvement_count = 0;
+        bool _stop = false;
 
         const double _evaluate_fitness(const Individual &ind);
 
@@ -93,7 +101,7 @@ namespace genetic_alg
         void _multi_point_crossover(Population &selected) const;
         void _uniform_crossover(Population &selected) const;
 
-        void _mutate(int skip_index = -1);
+        void _mutate(int skip_index);
     };
 
     Individual random_individual(int size);
