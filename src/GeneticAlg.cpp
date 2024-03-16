@@ -24,27 +24,15 @@ namespace genetic_alg
         }
     }
 
-    const double GeneticAlg::_evaluate_fitness(const Individual &ind)
-    {
-        if (_fitness_cache.find(ind) != _fitness_cache.end())
-        {
-            return _fitness_cache[ind];
-        }
-
-        _fitness_cache[ind] = _params.fitness_function(ind);
-
-        return _fitness_cache[ind];
-    }
-
     const std::pair<int, double> GeneticAlg::_find_fittest()
     {
-        double max_fitness = _evaluate_fitness(_population.block(0, 0, _population.rows(), 1));
+        double max_fitness = _params.fitness_function(_population.block(0, 0, _population.rows(), 1));
         int max_index = 0;
 
         for (int i = 1; i < _population.cols(); ++i)
         {
             const Individual &individual = _population.block(0, i, _population.rows(), 1);
-            const double fitness = _evaluate_fitness(individual);
+            const double fitness = _params.fitness_function(individual);
 
             if (fitness > max_fitness)
             {
@@ -74,12 +62,12 @@ namespace genetic_alg
             }
 
             Individual max_individual = _population.block(0, tournament[0], _population.rows(), 1);
-            int max_fitness = _evaluate_fitness(max_individual);
+            int max_fitness = _params.fitness_function(max_individual);
 
             for (int j = 1; j < _params.tournament_size; ++j)
             {
                 const Individual &individual = _population.block(0, tournament[j], _population.rows(), 1);
-                int fitness = _evaluate_fitness(individual);
+                int fitness = _params.fitness_function(individual);
 
                 if (fitness > max_fitness)
                 {
@@ -100,7 +88,7 @@ namespace genetic_alg
         double total_fitness = 0.0;
         for (int i = 0; i < _population.cols(); ++i)
         {
-            double fitness = _evaluate_fitness(_population.block(0, i, _population.rows(), 1));
+            double fitness = _params.fitness_function(_population.block(0, i, _population.rows(), 1));
             total_fitness += fitness;
 
             if (fitness < offset)
@@ -131,7 +119,7 @@ namespace genetic_alg
 
         for (int i = 0; i < _population.cols() && ind_index < _population.cols(); ++i)
         {
-            current_fitness += _evaluate_fitness(_population.block(0, i, _population.rows(), 1)) - offset;
+            current_fitness += _params.fitness_function(_population.block(0, i, _population.rows(), 1)) - offset;
 
             while (ind_index < _population.cols() && spins[ind_index] < current_fitness)
             {
@@ -159,7 +147,7 @@ namespace genetic_alg
         }
 
         std::sort(ranks.begin(), ranks.end(), [&](int i, int j)
-                  { return _evaluate_fitness(_population.block(0, i, _population.rows(), 1)) < _evaluate_fitness(_population.block(0, j, _population.rows(), 1)); });
+                  { return _params.fitness_function(_population.block(0, i, _population.rows(), 1)) < _params.fitness_function(_population.block(0, j, _population.rows(), 1)); });
         std::sort(spins.begin(), spins.end());
 
         Population selected(_population.rows(), _population.cols());
@@ -334,7 +322,7 @@ namespace genetic_alg
             _fittest_individual = _population.block(0, fittest.first, _population.rows(), 1);
         }
 
-        if (_max_fitness < prev_max_fitness * (1.0 + _params.minimum_improvement_rate))
+        if (_max_fitness <= prev_max_fitness * (1.0 + _params.minimum_improvement_rate))
         {
             ++_no_improvement_count;
         }
@@ -346,6 +334,15 @@ namespace genetic_alg
         if (_no_improvement_count == _params.epoch_improvement_threshold)
         {
             _stop = true;
+        }
+    }
+
+    void GeneticAlg::run_epochs(size_t epochs)
+    {
+#pragma omp parallel for
+        for (size_t i = 0; i < epochs; ++i)
+        {
+            run_epoch();
         }
     }
 
